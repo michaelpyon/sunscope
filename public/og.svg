@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd27a"/>
+      <stop offset="0.45" stop-color="#ff9d4d"/>
+      <stop offset="1" stop-color="#c2491f"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff7e0"/>
+      <stop offset="0.6" stop-color="#ffdd7a"/>
+      <stop offset="1" stop-color="#ffb74d"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#sky)"/>
+
+  <!-- sun -->
+  <circle cx="905" cy="270" r="150" fill="url(#sun)"/>
+  <g stroke="#fff2cf" stroke-width="10" stroke-linecap="round" opacity="0.85">
+    <line x1="905" y1="40" x2="905" y2="95"/>
+    <line x1="905" y1="445" x2="905" y2="500"/>
+    <line x1="675" y1="270" x2="730" y2="270"/>
+    <line x1="1080" y1="270" x2="1135" y2="270"/>
+    <line x1="742" y1="107" x2="781" y2="146"/>
+    <line x1="1029" y1="394" x2="1068" y2="433"/>
+    <line x1="1068" y1="107" x2="1029" y2="146"/>
+    <line x1="781" y1="394" x2="742" y2="433"/>
+  </g>
+
+  <!-- horizon line -->
+  <rect x="0" y="495" width="1200" height="6" fill="#fff2cf" opacity="0.5"/>
+
+  <text x="84" y="250" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="600" fill="#3a1404" letter-spacing="3">SUNSCOPE</text>
+  <text x="80" y="370" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="104" fill="#2a0e02">Follow the light</text>
+  <text x="84" y="440" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="40" fill="#4a1c06">Sun position, golden hour, and shadow direction</text>
+  <text x="84" y="490" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="40" fill="#4a1c06">on a live map</text>
+
+  <text x="84" y="575" font-family="Inter, sans-serif" font-size="30" fill="#6b2c0e">sunscope-eta.vercel.app</text>
+</svg>
