@@ -21,9 +21,9 @@ export function SunlightTimeline({ results }: Props) {
   const now = new Date().getHours()
 
   return (
-    <div className="sunlight-timeline">
+    <div className="sunlight-timeline" role="region" aria-label="Today's sunlight by hour">
       <h3>Today's Sunlight</h3>
-      <div className="timeline-bar">
+      <div className="timeline-bar" role="img" aria-label="24-hour timeline showing direct sun, blocked, and night periods">
         {results.map((r) => (
           <div
             key={r.hour}

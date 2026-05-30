@@ -15,6 +15,10 @@ export function FloorSlider({ floor, maxFloor, onChange }: Props) {
           max={maxFloor}
           value={floor}
           onChange={(e) => onChange(parseInt(e.target.value))}
+          aria-label={`Floor ${floor} of ${maxFloor}`}
+          aria-valuemin={1}
+          aria-valuemax={maxFloor}
+          aria-valuenow={floor}
         />
         <div className="floor-range">
           <span>1</span>

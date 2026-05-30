@@ -16,9 +16,9 @@ export function YearlyHeatmap({ results }: Props) {
   }
 
   return (
-    <div className="yearly-heatmap">
+    <div className="yearly-heatmap" role="region" aria-label="Yearly sunlight heatmap">
       <h3>Yearly Sunlight Map</h3>
-      <div className="heatmap-grid">
+      <div className="heatmap-grid" role="img" aria-label="Heatmap of direct sun by month and hour across the year">
         {/* Header row: months */}
         <div className="heatmap-corner" />
         {MONTHS.map(m => (

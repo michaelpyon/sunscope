@@ -9,20 +9,42 @@ export function seasonalHours(analysis: UnitAnalysis): { summer: number; winter:
   return { summer, winter }
 }
 
-// Describe a winter sun amount in plain words.
+// Describe a winter sun amount in plain words. Northern Hemisphere wording;
+// the seasonal month grouping is hemisphere-specific and would need flipping
+// for the Southern Hemisphere when SunScope expands beyond US cities.
 function winterWord(winter: number): string {
   if (winter < 1.5) return 'dim in winter'
   if (winter < 3.5) return 'modest in winter'
   return 'still bright in winter'
 }
 
+// Fraction of daylight hours (across the year) where neighbors block direct sun.
+// Returns a value in 0..1. Returns 0 when there are no daylight hours.
+export function blockedFraction(analysis: UnitAnalysis): number {
+  const daylight = analysis.results.filter((r) => r.status !== 'DARK')
+  if (daylight.length === 0) return 0
+  const blocked = daylight.filter((r) => r.status === 'BLOCKED').length
+  return blocked / daylight.length
+}
+
 // Build a one-line human summary from the real computed values.
 // Example: "South face, floor 5: about 4 hours of direct sun in summer, dim in winter."
+// When neighbors block more than ~40% of daylight, a second sentence calls that
+// out so a heavily-obstructed unit does not read identically to a clear one.
 export function buildVerdict(analysis: UnitAnalysis): string {
   const { summer, winter } = seasonalHours(analysis)
   const summerRounded = Math.round(summer)
   const hourWord = summerRounded === 1 ? 'hour' : 'hours'
-  return `${analysis.faceLabel} face, floor ${analysis.floor}: about ${summerRounded} ${hourWord} of direct sun in summer, ${winterWord(winter)}.`
+  const base = `${analysis.faceLabel} face, floor ${analysis.floor}: about ${summerRounded} ${hourWord} of direct sun in summer, ${winterWord(winter)}.`
+
+  const blocked = blockedFraction(analysis)
+  if (blocked >= 0.6) {
+    return `${base} Heavily blocked by neighbors most of the day.`
+  }
+  if (blocked >= 0.4) {
+    return `${base} Neighboring buildings block a meaningful share of daylight.`
+  }
+  return base
 }
 
 // Format a Date to a short local time like "6:42 PM". Returns null if invalid.

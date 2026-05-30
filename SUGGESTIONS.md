@@ -1,0 +1,43 @@
+# SunScope: Audience-Iteration Pass (2026-05-30)
+
+Builds on the converged 3-iteration deep panel (warm-to-cool light ramp + live cast-shadow polygon). This pass is additive only, no rebuilds, no deploys.
+
+## The single ideal evangelist
+
+A 28-year-old apartment hunter in Brooklyn who just got a virtual tour link from StreetEasy, lives on r/AskNYC and r/NYCapartments, and is about to sign a 12-month lease on a unit with windows they have never stood in front of in daylight. They use Google Maps shadow imagery as a hack, do not trust listing photos, and asked Reddit "which way does this building face" 3 hours ago. Share-trigger: a screenshot showing "South face, floor 5: about 4 hours of direct sun in summer, dim in winter" dropped into the Reddit thread or a group chat with their partner. 5-second bounce risk: lands on an empty search box with no idea what to type, no proof it works, and bounces before geocoding their address.
+
+## Ground-truth verdict
+
+Live at https://sunscope-eta.vercel.app/ (HTTP 200, recent deploy 2026-05-29). The shipped artifact is the deep-panel converged build: shareable URL state, PNG export, plain-English verdict, warm-to-cool light ramp, live cast-shadow polygon, geocode confirmation with alternate matches. No fabricated data. Building footprints come from OpenStreetMap via Overpass, sun positions from SunCalc, building heights labeled "measured" vs estimated and surfaced as confidence. Honest product.
+
+**Exposed secret still flagged (NOT rotated per guardrail):** The `VITE_MAPBOX_TOKEN` value (prefix `pk.eyJ1...`, full token redacted from this file) ships in the live JS bundle. Mapbox public tokens are designed to be exposed when URL-restricted, but please verify URL restrictions are set on the token in the Mapbox dashboard, and rotate if not.
+
+## 10-star bets across 5 perspectives
+
+- **Evangelist:** A "share this with my partner" hero artifact that opens directly to a finished result with a permalink the partner can tap and see the same heatmap. The shared image needs the verdict line embedded large so it reads at thumbnail size in iMessage.
+- **5-second bounce:** Landing on an empty input with no proof is a churn cliff. Three tappable sample addresses (one each NYC, SF, Chicago) get a visitor to the working product without typing.
+- **Growth:** The shared image needs a captured permalink chip ("sunscope-eta.vercel.app/#lat=...") so people who see the screenshot can tap through. The address itself is the SEO body. Long term: pre-rendered OG cards per shared URL via a serverless function.
+- **Staff engineer red-team:** Mapbox token in the client bundle is fine if URL-restricted, but the bundle is 1.3MB — code-splitting maplibre-gl and html-to-image is a meaningful bigger bet. Also: no error boundary, no analytics on geocode-failed events, no telemetry to know if the auto-pick face is wrong.
+- **Design/taste:** Verdict is one sentence. Heavily-obstructed units read identically to lightly-obstructed ones unless you read the confidence line. A second sentence calling out neighbor obstruction (when present) makes the result trustworthy at a glance.
+
+## Prioritized plan
+
+### Quick wins (this pass, additive only)
+
+1. **Sample-address chips on the search screen** — top win. Three tappable example addresses (NYC, SF, Chicago) below the hint. Files: `src/components/AddressSearch.tsx`, `src/index.css`. Effort S. Deploy N.
+2. **Obstruction signal in the verdict** — when the obstructed fraction of daylight hours is high (>=40%), append "Heavily blocked by neighbors" to the verdict. Files: `src/lib/verdict.ts`, `src/lib/obstruction.ts` (export blocked fraction in `UnitAnalysis`). Effort S. Deploy N.
+3. **"How this works" disclosure on results** — small expandable line under the SummaryCard footer linking to data sources (OSM, SunCalc). Trust signal for the Reddit audience that asks "but how do you know?" Files: `src/App.tsx`, `src/index.css`. Effort S. Deploy N.
+4. **A11y labels** — aria-label on the floor slider, aria-labels on heatmap / timeline. Files: `src/components/FloorSlider.tsx`, `src/components/SunlightTimeline.tsx`, `src/components/YearlyHeatmap.tsx`. Effort S. Deploy N.
+5. **Verdict tense fix** — winter month grouping currently uses Dec/Jan/Feb which is correct for Northern Hemisphere; add a note in `verdict.ts` so future hemisphere expansion is clear. Files: `src/lib/verdict.ts`. Effort S. Deploy N.
+
+### Bigger bets (flagged for Michael, not implemented)
+
+6. **Verify Mapbox token URL restriction** in the Mapbox dashboard. If unrestricted, rotate and add a URL allowlist for `sunscope-eta.vercel.app` and any prod alias. Effort S. Deploy Y.
+7. **Code-split maplibre-gl and html-to-image** to drop the 1.3MB main bundle to something a 3G connection can load. `vite.config.ts` manualChunks. Effort M. Deploy Y.
+8. **Per-URL dynamic OG card** via a small Vercel serverless function that renders the verdict text + address + face + floor into the shared image. Effort M. Deploy Y.
+9. **Pre-built result permalinks for top 20 NYC neighborhoods** — SEO landing pages ("Sunlight in Williamsburg") that link into the deep-link state. Effort L. Deploy Y.
+10. **Real building-heights backfill** in NYC from open data (NYC PLUTO building heights). The "estimated" heightSource confidence drag is solvable for the densest evangelist city. Effort L. Deploy Y.
+
+## Status
+
+Top safe wins (1, 2, 3, 4) shipped this pass. Bigger bets flagged for Michael.

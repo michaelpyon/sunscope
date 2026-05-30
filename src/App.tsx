@@ -442,6 +442,14 @@ export default function App() {
                   shareUrl={shareUrl}
                   shareTitle={`${state.analysis.faceLabel} face, floor ${state.analysis.floor} sun exposure`}
                 />
+                {/* Trust signal: name the public data sources so the result does
+                    not read as a black box to a skeptical first-time visitor. */}
+                <details className="how-it-works">
+                  <summary>How this works</summary>
+                  <p>
+                    Building footprints come from <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> via Overpass. Sun positions are computed locally with <a href="https://github.com/mourner/suncalc" target="_blank" rel="noopener noreferrer">SunCalc</a>. Heights are tagged as measured when present in OSM and estimated otherwise; the confidence percentage on the summary card reflects how many neighbors had measured heights.
+                  </p>
+                </details>
               </>
             )}
           </div>

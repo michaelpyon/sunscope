@@ -115,6 +115,76 @@ body {
   text-align: center;
 }
 
+/* Sample-address chips: one-tap demo of the product for visitors who land
+   on a blank input. Kills the empty-screen bounce. */
+.sample-addresses {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.sample-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.sample-chip {
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 36px;
+}
+
+.sample-chip:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: var(--accent);
+}
+
+.sample-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* "How this works" disclosure on the results panel: trust signal that names
+   the public data sources so the result does not read as a black box. */
+.how-it-works {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.how-it-works summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.how-it-works p {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.how-it-works a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.how-it-works a:hover {
+  text-decoration: underline;
+}
+
 /* Loading */
 .loading-indicator {
   text-align: center;
