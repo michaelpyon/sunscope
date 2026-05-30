@@ -797,6 +797,26 @@ body {
   background: var(--accent-hover);
 }
 
+/* Respect a user's reduced-motion preference: stop the spinner from rotating
+   (swap it for a static dim state) and drop hover/transition motion. Vestibular
+   accessibility win; no visual change for everyone else. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .spinner,
+  .spinner.large {
+    animation: none;
+    border-top-color: var(--accent);
+    opacity: 0.6;
+  }
+}
+
 /* Responsive */
 @media (max-width: 860px) {
   .main-layout {
