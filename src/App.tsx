@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { AppState, LatLng } from './types'
+import type { AppState, LatLng, BuildingFace, BuildingPolygon } from './types'
 import { geocodeAddress } from './lib/geocoding'
+import type { GeocodeCandidate } from './lib/geocoding'
 import { fetchBuildings, findClosestBuilding } from './lib/overpass'
 import { extractFaces, analyzeUnit, analyzeTodaySunlight } from './lib/obstruction'
 import { AddressSearch } from './components/AddressSearch'
@@ -15,23 +16,60 @@ import { ErrorState } from './components/ErrorState'
 import { getSunPosition } from './lib/sun'
 import { readUrlState, writeUrlState, encodeUrlState } from './lib/urlState'
 
+// Estimate how many floors a building has from its measured height (matches the
+// floor slider cap logic so the default floor is always in range).
+function estimateMaxFloor(building: BuildingPolygon): number {
+  const estimated = Math.round(building.height / 3)
+  return Math.min(Math.max(estimated, 2), 60)
+}
+
+// Pick a sensible default face: prefer a south-facing one (the most-asked "does
+// it get sun" case in the Northern Hemisphere), otherwise fall back to the first
+// face. Returns the face index, or null when the building has no usable faces.
+function pickDefaultFace(faces: BuildingFace[]): number | null {
+  if (faces.length === 0) return null
+  // Bearing 180 is due south. Score each face by how close it points to south,
+  // accepting anything within the southern half (SE through SW).
+  let bestIndex = 0
+  let bestDiff = Infinity
+  faces.forEach((face, i) => {
+    const diff = Math.abs(face.bearing - 180)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      bestIndex = i
+    }
+  })
+  // Within 90 degrees of south counts as south-facing; otherwise use face 0.
+  return bestDiff <= 90 ? bestIndex : 0
+}
+
+// Pick a representative floor: a mid floor for taller buildings, floor 1 for
+// low-rise. Keeps the auto-run analysis sensible without user input.
+function pickDefaultFloor(building: BuildingPolygon): number {
+  const maxFloor = estimateMaxFloor(building)
+  if (maxFloor <= 3) return 1
+  return Math.max(1, Math.round(maxFloor / 2))
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: 'search' })
   const [selectedFace, setSelectedFace] = useState<number | null>(null)
   const [floor, setFloor] = useState(5)
   const [displayAddress, setDisplayAddress] = useState('')
+  // Other geocoder matches so a wrong top pick is visible and switchable.
+  const [candidates, setCandidates] = useState<GeocodeCandidate[]>([])
   // Guards the one-time restore from the URL so it does not re-run on re-render.
   const restoredRef = useRef(false)
 
-  const handleSearch = useCallback(async (query: string) => {
-    setState({ phase: 'loading', address: query })
+  // Load buildings around a resolved point, then auto-select a sensible default
+  // face and floor and run the analysis immediately so the payoff appears with
+  // no "click a building face" step. Falls back to the select-face prompt only
+  // when no usable face can be picked.
+  const loadAndAnalyze = useCallback(async (center: LatLng, label: string) => {
+    setState({ phase: 'loading', address: label })
+    setDisplayAddress(label)
 
     try {
-      // Step 1: Geocode the address
-      const { center, displayName } = await geocodeAddress(query)
-      setDisplayAddress(displayName)
-
-      // Step 2: Fetch buildings from Overpass
       let buildings
       try {
         buildings = await fetchBuildings(center)
@@ -49,24 +87,58 @@ export default function App() {
         return
       }
 
-      // Step 3: Find the closest building to the geocoded point
       const targetBuilding = findClosestBuilding(buildings, center)
       if (!targetBuilding) {
         setState({ phase: 'error', error: { type: 'NO_BUILDING_DATA', message: 'Could not identify building' } })
         return
       }
 
-      // Step 4: Extract faces
       const faces = extractFaces(targetBuilding)
+      const defaultFace = pickDefaultFace(faces)
 
-      setSelectedFace(null)
+      // No usable face: fall back to the manual prompt.
+      if (defaultFace === null) {
+        setSelectedFace(null)
+        setState({ phase: 'select-face', address: label, building: targetBuilding, nearbyBuildings: buildings, faces })
+        return
+      }
+
+      // Auto-select the default face and a representative floor, then analyze.
+      const defaultFloor = pickDefaultFloor(targetBuilding)
+      const face = faces[defaultFace]
+      const analysis = analyzeUnit(
+        face.centroid,
+        defaultFloor,
+        face.bearing,
+        face.label,
+        targetBuilding.id,
+        buildings,
+        label
+      )
+      setFloor(defaultFloor)
+      setSelectedFace(defaultFace)
       setState({
-        phase: 'select-face',
-        address: displayName,
+        phase: 'results',
+        address: label,
+        analysis,
         building: targetBuilding,
         nearbyBuildings: buildings,
         faces,
       })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      setState({ phase: 'error', error: { type: 'API_DOWN', message: msg } })
+    }
+  }, [])
+
+  const handleSearch = useCallback(async (query: string) => {
+    setState({ phase: 'loading', address: query })
+
+    try {
+      // Geocode the address, keeping alternate matches for confirmation.
+      const { center, displayName, candidates: matches } = await geocodeAddress(query)
+      setCandidates(matches)
+      await loadAndAnalyze(center, displayName)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error'
       if (msg === 'ADDRESS_NOT_FOUND') {
@@ -75,7 +147,12 @@ export default function App() {
         setState({ phase: 'error', error: { type: 'API_DOWN', message: msg } })
       }
     }
-  }, [])
+  }, [loadAndAnalyze])
+
+  // Switch to a different geocoder candidate when the top match was wrong.
+  const handlePickCandidate = useCallback((candidate: GeocodeCandidate) => {
+    loadAndAnalyze(candidate.center, candidate.displayName)
+  }, [loadAndAnalyze])
 
   const handleFaceClick = useCallback((faceIndex: number) => {
     setSelectedFace(faceIndex)
@@ -130,6 +207,7 @@ export default function App() {
   const handleRetry = useCallback(() => {
     setState({ phase: 'search' })
     setSelectedFace(null)
+    setCandidates([])
     // Clear the deep-link so a new search starts from a clean URL.
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
   }, [])
@@ -251,6 +329,10 @@ export default function App() {
     return null
   })()
 
+  // Alternate geocoder matches, excluding the one currently shown, so the user
+  // can switch if the top pick was wrong (e.g. Brooklyn vs Manhattan).
+  const otherCandidates = candidates.filter((c) => c.displayName !== displayAddress)
+
   return (
     <div className="app">
       <header className="app-header">
@@ -297,22 +379,54 @@ export default function App() {
           </div>
 
           <div className="results-panel">
+            {/* Confirm or correct the geocoded address so a wrong pick is recoverable. */}
+            {displayAddress && (
+              <div className="geocode-confirm">
+                <p className="geocode-confirm-label">
+                  Showing: <strong>{displayAddress}</strong>
+                </p>
+                <p className="geocode-confirm-hint">
+                  Not right? <button className="link-button" onClick={handleRetry}>Search again</button>
+                  {otherCandidates.length > 0 && ' or pick a closer match below.'}
+                </p>
+                {otherCandidates.length > 0 && (
+                  <div className="candidate-list">
+                    {otherCandidates.map((c) => (
+                      <button
+                        key={c.displayName}
+                        className="candidate-button"
+                        onClick={() => handlePickCandidate(c)}
+                      >
+                        {c.displayName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <FloorSlider floor={floor} maxFloor={maxFloor} onChange={handleFloorChange} />
 
+            {/* Persistent side picker so the auto-selected default is obvious and adjustable. */}
+            <div className="face-picker">
+              <p className="face-picker-label">Which side of the building?</p>
+              <div className="face-list">
+                {state.faces.map((face, i) => (
+                  <button
+                    key={i}
+                    className={`face-button ${selectedFace === i ? 'selected' : ''}`}
+                    onClick={() => handleFaceClick(i)}
+                  >
+                    {face.label} ({Math.round(face.bearing)}°)
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fallback only: shown when no face could be auto-selected. */}
             {state.phase === 'select-face' && (
               <div className="select-face-prompt">
-                <p>Click a building face on the map to see sunlight analysis</p>
-                <div className="face-list">
-                  {state.faces.map((face, i) => (
-                    <button
-                      key={i}
-                      className={`face-button ${selectedFace === i ? 'selected' : ''}`}
-                      onClick={() => handleFaceClick(i)}
-                    >
-                      {face.label} ({Math.round(face.bearing)}°)
-                    </button>
-                  ))}
-                </div>
+                <p>Pick a side above, or tap a building face on the map, to see its sunlight.</p>
               </div>
             )}
 
