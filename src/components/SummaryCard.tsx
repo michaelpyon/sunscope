@@ -1,4 +1,5 @@
 import type { UnitAnalysis } from '../types'
+import { buildVerdict, buildGoldenHourLine, seasonalHours } from '../lib/verdict'
 
 interface Props {
   analysis: UnitAnalysis
@@ -9,13 +10,15 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export function SummaryCard({ analysis }: Props) {
   const { address, floor, faceLabel, totalSunHours, dataQuality } = analysis
 
-  const summerHours = (totalSunHours.monthly[5] + totalSunHours.monthly[6] + totalSunHours.monthly[7]) / 3
-  const winterHours = (totalSunHours.monthly[11] + totalSunHours.monthly[0] + totalSunHours.monthly[1]) / 3
+  const { summer: summerHours, winter: winterHours } = seasonalHours(analysis)
 
   const bestMonth = totalSunHours.monthly.indexOf(Math.max(...totalSunHours.monthly))
   const worstMonth = totalSunHours.monthly.indexOf(Math.min(...totalSunHours.monthly))
 
   const confidencePct = Math.round(dataQuality.confidence * 100)
+
+  const verdict = buildVerdict(analysis)
+  const goldenHourLine = buildGoldenHourLine({ lat: analysis.lat, lng: analysis.lng })
 
   return (
     <div className="summary-card" id="summary-card">
@@ -24,6 +27,9 @@ export function SummaryCard({ analysis }: Props) {
         <div className="summary-address">{address}</div>
         <div className="summary-unit">Floor {floor}, {faceLabel}-facing</div>
       </div>
+
+      <p className="summary-verdict">{verdict}</p>
+      {goldenHourLine && <p className="summary-golden">{goldenHourLine}</p>}
 
       <div className="summary-stats">
         <div className="stat">

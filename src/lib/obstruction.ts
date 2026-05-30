@@ -102,47 +102,111 @@ function rayIntersectsBuilding(
   return distanceMeters(origin, { lat: hitLat, lng: hitLng })
 }
 
-// Extract faces from a building polygon (each edge is a face)
+// Compute signed area to detect polygon winding (positive = CCW, negative = CW)
+function signedArea(coords: LatLng[]): number {
+  let area = 0
+  for (let i = 0; i < coords.length; i++) {
+    const j = (i + 1) % coords.length
+    area += coords[i].lng * coords[j].lat
+    area -= coords[j].lng * coords[i].lat
+  }
+  return area / 2
+}
+
+// Extract faces from a building polygon, merging edges with similar bearings
 export function extractFaces(building: BuildingPolygon): BuildingFace[] {
   const coords = building.coords
-  const faces: BuildingFace[] = []
+  const isCCW = signedArea(coords) > 0
+
+  // Step 1: compute raw face for every edge
+  const rawFaces: Array<{ start: LatLng; end: LatLng; bearing: number; length: number }> = []
 
   for (let i = 0; i < coords.length; i++) {
     const start = coords[i]
     const end = coords[(i + 1) % coords.length]
 
-    const midLat = (start.lat + end.lat) / 2
-    const midLng = (start.lng + end.lng) / 2
-
-    // Edge vector
     const dLat = end.lat - start.lat
     const dLng = end.lng - start.lng
 
-    // Outward normal (rotate edge 90 degrees clockwise)
-    // Edge direction: (dLng, dLat) in map space
-    // Normal pointing outward: depends on polygon winding
-    // For OSM (counter-clockwise), right-hand normal = outward
-    const normalLat = -dLng
-    const normalLng = dLat
+    // Outward normal depends on winding direction
+    // CCW: right-hand normal (rotate -90°) points outward
+    // CW: left-hand normal (rotate +90°) points outward
+    const normalLat = isCCW ? -dLng : dLng
+    const normalLng = isCCW ? dLat : -dLat
 
-    // Convert to compass bearing
     let bearing = (Math.atan2(normalLng, normalLat) * 180) / Math.PI
     if (bearing < 0) bearing += 360
 
-    // Edge length in meters (skip tiny edges)
     const length = distanceMeters(start, end)
-    if (length < 2) continue
+    if (length < 1) continue
 
-    faces.push({
-      start,
-      end,
-      centroid: { lat: midLat, lng: midLng },
-      bearing,
-      label: bearingToLabel(bearing),
+    rawFaces.push({ start, end, bearing, length })
+  }
+
+  // Step 2: merge edges with similar bearings (within 25°) into groups
+  const MERGE_THRESHOLD = 25
+  const groups: Array<{ faces: typeof rawFaces; weightedBearing: number; totalLength: number }> = []
+
+  for (const face of rawFaces) {
+    let merged = false
+    for (const group of groups) {
+      const diff = Math.abs(face.bearing - group.weightedBearing)
+      const angleDiff = Math.min(diff, 360 - diff)
+      if (angleDiff < MERGE_THRESHOLD) {
+        group.faces.push(face)
+        // Recompute weighted average bearing
+        const totalLen = group.totalLength + face.length
+        // Handle wrapping around 0/360
+        let avgBearing = group.weightedBearing
+        let faceBearing = face.bearing
+        if (Math.abs(faceBearing - avgBearing) > 180) {
+          if (faceBearing < avgBearing) faceBearing += 360
+          else avgBearing += 360
+        }
+        avgBearing = (avgBearing * group.totalLength + faceBearing * face.length) / totalLen
+        if (avgBearing >= 360) avgBearing -= 360
+        if (avgBearing < 0) avgBearing += 360
+        group.weightedBearing = avgBearing
+        group.totalLength = totalLen
+        merged = true
+        break
+      }
+    }
+    if (!merged) {
+      groups.push({
+        faces: [face],
+        weightedBearing: face.bearing,
+        totalLength: face.length,
+      })
+    }
+  }
+
+  // Step 3: convert groups to BuildingFace (use longest edge's endpoints, group centroid)
+  const result: BuildingFace[] = []
+  for (const group of groups) {
+    // Use the start/end of the longest edge in the group
+    const longest = group.faces.reduce((a, b) => a.length > b.length ? a : b)
+    // Centroid = average of all edge midpoints, weighted by length
+    let cLat = 0, cLng = 0
+    for (const f of group.faces) {
+      const midLat = (f.start.lat + f.end.lat) / 2
+      const midLng = (f.start.lng + f.end.lng) / 2
+      cLat += midLat * f.length
+      cLng += midLng * f.length
+    }
+    cLat /= group.totalLength
+    cLng /= group.totalLength
+
+    result.push({
+      start: longest.start,
+      end: longest.end,
+      centroid: { lat: cLat, lng: cLng },
+      bearing: group.weightedBearing,
+      label: bearingToLabel(group.weightedBearing),
     })
   }
 
-  return faces
+  return result
 }
 
 function bearingToLabel(bearing: number): string {
