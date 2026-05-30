@@ -17,7 +17,7 @@ Live at https://sunscope-eta.vercel.app/ (HTTP 200, recent deploy 2026-05-29). T
 - **Evangelist:** A "share this with my partner" hero artifact that opens directly to a finished result with a permalink the partner can tap and see the same heatmap. The shared image needs the verdict line embedded large so it reads at thumbnail size in iMessage.
 - **5-second bounce:** Landing on an empty input with no proof is a churn cliff. Three tappable sample addresses (one each NYC, SF, Chicago) get a visitor to the working product without typing.
 - **Growth:** The shared image needs a captured permalink chip ("sunscope-eta.vercel.app/#lat=...") so people who see the screenshot can tap through. The address itself is the SEO body. Long term: pre-rendered OG cards per shared URL via a serverless function.
-- **Staff engineer red-team:** Mapbox token in the client bundle is fine if URL-restricted, but the bundle is 1.3MB — code-splitting maplibre-gl and html-to-image is a meaningful bigger bet. Also: no error boundary, no analytics on geocode-failed events, no telemetry to know if the auto-pick face is wrong.
+- **Staff engineer red-team:** Mapbox token in the client bundle is fine if URL-restricted, but the bundle is 1.3MB, code-splitting maplibre-gl and html-to-image is a meaningful bigger bet. A top-level React error boundary now wraps the app (shipped this pass) so a map or WebGL crash shows a recoverable Reload message instead of a blank white screen. Still missing: analytics on geocode-failed events, telemetry to know if the auto-pick face is wrong.
 - **Design/taste:** Verdict is one sentence. Heavily-obstructed units read identically to lightly-obstructed ones unless you read the confidence line. A second sentence calling out neighbor obstruction (when present) makes the result trustworthy at a glance.
 
 ## Prioritized plan
@@ -38,6 +38,10 @@ Live at https://sunscope-eta.vercel.app/ (HTTP 200, recent deploy 2026-05-29). T
 9. **Pre-built result permalinks for top 20 NYC neighborhoods** — SEO landing pages ("Sunlight in Williamsburg") that link into the deep-link state. Effort L. Deploy Y.
 10. **Real building-heights backfill** in NYC from open data (NYC PLUTO building heights). The "estimated" heightSource confidence drag is solvable for the densest evangelist city. Effort L. Deploy Y.
 
+### Quick wins (this pass)
+
+6. **Top-level React error boundary** (shipped). `src/components/ErrorBoundary.tsx` wraps `App` in `src/main.tsx`. A render crash from MapLibre/WebGL or an unexpected analysis state now shows a recoverable "Something went wrong, Reload" card reusing the existing `.error-state` styles, instead of a blank white screen that silently loses the visitor. Effort S. Deploy N to verify behavior, builds clean locally.
+
 ## Status
 
-Top safe wins (1, 2, 3, 4) shipped this pass. Bigger bets flagged for Michael.
+Earlier passes shipped wins 1, 2, 3, 4. This pass adds the top-level error boundary (win 6). Bigger bets (Mapbox token URL restriction, code-splitting, per-URL OG cards, neighborhood SEO pages, PLUTO height backfill) remain flagged for Michael and need a deploy to verify.
