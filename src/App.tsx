@@ -437,7 +437,7 @@ export default function App() {
               <>
                 <SunlightTimeline results={todayResults} />
                 <YearlyHeatmap results={state.analysis.results} />
-                <SummaryCard analysis={state.analysis} />
+                <SummaryCard analysis={state.analysis} permalink={shareUrl} />
                 <ShareBar
                   shareUrl={shareUrl}
                   shareTitle={`${state.analysis.faceLabel} face, floor ${state.analysis.floor} sun exposure`}

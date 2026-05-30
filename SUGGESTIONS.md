@@ -42,6 +42,12 @@ Live at https://sunscope-eta.vercel.app/ (HTTP 200, recent deploy 2026-05-29). T
 
 6. **Top-level React error boundary** (shipped). `src/components/ErrorBoundary.tsx` wraps `App` in `src/main.tsx`. A render crash from MapLibre/WebGL or an unexpected analysis state now shows a recoverable "Something went wrong, Reload" card reusing the existing `.error-state` styles, instead of a blank white screen that silently loses the visitor. Effort S. Deploy N to verify behavior, builds clean locally.
 
+## Shipped wave 2 (2026-05-30)
+
+**Real-host permalink on the shared card.** The saved/shared PNG footer hard-coded `sunscope.app`, a host that does not resolve (verified: HTTP 000, no DNS answer), while the live app and OG metadata all live on `sunscope-eta.vercel.app` (verified HTTP 200 with a Twitterbot user agent, og.png returns 200 too). A screenshot dropped into a Reddit thread or group chat (the evangelist's core moment) was therefore advertising a dead address. The `SummaryCard` footer now renders the real working host derived from the current page (or the deep-link permalink passed from `App`), so the screenshot points somewhere a viewer can actually tap through to. This directly serves the top evangelist bet (a captured working permalink chip on the shared image). Files: `src/components/SummaryCard.tsx` (new optional `permalink` prop + `permalinkHost` helper), `src/App.tsx` (passes `shareUrl`). Build + tsc pass clean. Additive, no deploy.
+
+**Flag re-confirmed (NOT changed):** `VITE_MAPBOX_TOKEN` is read in `src/lib/geocoding.ts` via `import.meta.env.VITE_MAPBOX_TOKEN`, so Vite inlines it into the client bundle (this is inherent to any `VITE_` var). The `.env` itself is gitignored and not committed. Mapbox public tokens are designed to be exposed when URL-restricted; verify URL restrictions in the Mapbox dashboard and rotate only if unrestricted. Per guardrail this wave did not rotate or block on it. Canonical / og:url / og:image were checked and are already correct, so no URL changes were needed.
+
 ## Status
 
-Earlier passes shipped wins 1, 2, 3, 4. This pass adds the top-level error boundary (win 6). Bigger bets (Mapbox token URL restriction, code-splitting, per-URL OG cards, neighborhood SEO pages, PLUTO height backfill) remain flagged for Michael and need a deploy to verify.
+Earlier passes shipped wins 1, 2, 3, 4. The prior pass added the top-level error boundary (win 6). This wave (2) fixed the dead-host footer on the shared card so the shareable artifact carries a working permalink. Bigger bets (Mapbox token URL restriction, code-splitting the 1.3MB bundle, per-URL OG cards, neighborhood SEO pages, PLUTO height backfill) remain flagged for Michael and need a deploy to verify.

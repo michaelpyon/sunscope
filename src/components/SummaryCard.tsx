@@ -4,11 +4,31 @@ import { exposureColor, hoursToExposure } from '../lib/lightRamp'
 
 interface Props {
   analysis: UnitAnalysis
+  // The live permalink that reproduces this exact result. Rendered into the
+  // saved/shared PNG footer so a screenshot dropped into a thread or group chat
+  // shows the real host someone can tap through to. When absent, the footer
+  // falls back to the current page host.
+  permalink?: string
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export function SummaryCard({ analysis }: Props) {
+// Reduce a full permalink to a clean host shown on the shared card. Long deep
+// links read as noise at thumbnail size, so the footer shows just the host
+// (which actually resolves), while the Copy link and Save image flows keep the
+// full deep link. Falls back to the page host when parsing fails.
+function permalinkHost(permalink?: string): string {
+  const fallback =
+    typeof window !== 'undefined' && window.location ? window.location.host : 'sunscope-eta.vercel.app'
+  if (!permalink) return fallback
+  try {
+    return new URL(permalink).host || fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function SummaryCard({ analysis, permalink }: Props) {
   const { address, floor, faceLabel, totalSunHours, dataQuality } = analysis
 
   const { summer: summerHours, winter: winterHours } = seasonalHours(analysis)
@@ -95,7 +115,7 @@ export function SummaryCard({ analysis }: Props) {
       </div>
 
       <div className="summary-footer">
-        sunscope.app
+        {permalinkHost(permalink)}
       </div>
     </div>
   )
