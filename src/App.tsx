@@ -286,15 +286,16 @@ export default function App() {
     })
   }, [state, selectedFace, floor])
 
-  // Current sun azimuth for compass
-  const currentSunAzimuth = (() => {
+  // Current sun position, used for the compass and the live cast-shadow polygon.
+  const currentSun = (() => {
     if (state.phase === 'select-face' || state.phase === 'results') {
       const center = state.building.coords[0]
-      const pos = getSunPosition(new Date(), center)
-      return pos.altitude > 0 ? pos.azimuth : undefined
+      return getSunPosition(new Date(), center)
     }
     return undefined
   })()
+  // Compass only shows the bearing when the sun is up.
+  const currentSunAzimuth = currentSun && currentSun.altitude > 0 ? currentSun.azimuth : undefined
 
   // Max floor estimate from building height (capped at 60, floor at 2)
   const maxFloor = (() => {
@@ -374,6 +375,8 @@ export default function App() {
               faces={state.faces}
               selectedFace={selectedFace}
               onFaceClick={handleFaceClick}
+              sunAzimuth={currentSun && currentSun.altitude > 0 ? currentSun.azimuth : undefined}
+              sunAltitude={currentSun && currentSun.altitude > 0 ? currentSun.altitude : undefined}
             />
             <CompassOverlay sunAzimuth={currentSunAzimuth} />
           </div>

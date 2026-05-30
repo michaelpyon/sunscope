@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { LatLng, BuildingPolygon, BuildingFace } from '../types'
+import { computeShadowPolygon } from '../lib/shadow'
 
 interface Props {
   center: LatLng
@@ -10,11 +11,15 @@ interface Props {
   faces: BuildingFace[]
   selectedFace: number | null
   onFaceClick: (faceIndex: number) => void
+  // Current sun position used to cast the live shadow polygon. Omitted (or
+  // altitude at or below the horizon) means no shadow is drawn.
+  sunAzimuth?: number
+  sunAltitude?: number
 }
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
-export function BuildingMap({ center, building, nearbyBuildings, faces, selectedFace, onFaceClick }: Props) {
+export function BuildingMap({ center, building, nearbyBuildings, faces, selectedFace, onFaceClick, sunAzimuth, sunAltitude }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -85,10 +90,38 @@ export function BuildingMap({ center, building, nearbyBuildings, faces, selected
     }))
 
     // Remove existing sources/layers
-    for (const id of ['nearby-buildings', 'target-building', 'faces', 'face-labels']) {
+    for (const id of ['cast-shadow', 'nearby-buildings', 'target-building', 'faces', 'face-labels']) {
       if (map.getLayer(id)) map.removeLayer(id)
       if (map.getLayer(id + '-outline')) map.removeLayer(id + '-outline')
       if (map.getSource(id)) map.removeSource(id)
+    }
+
+    // Cast shadow for the selected building at the current sun position. Drawn
+    // first so it sits beneath the building fills and outlines.
+    const shadowPolygon =
+      sunAzimuth !== undefined && sunAltitude !== undefined
+        ? computeShadowPolygon(building.coords, building.height, sunAzimuth, sunAltitude)
+        : null
+
+    if (shadowPolygon && shadowPolygon.length >= 3) {
+      const shadowFeature = {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [[...shadowPolygon.map((c) => [c.lng, c.lat]), [shadowPolygon[0].lng, shadowPolygon[0].lat]]],
+        },
+      }
+      map.addSource('cast-shadow', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [shadowFeature] },
+      })
+      map.addLayer({
+        id: 'cast-shadow',
+        type: 'fill',
+        source: 'cast-shadow',
+        paint: { 'fill-color': '#1e293b', 'fill-opacity': 0.22 },
+      })
     }
 
     // Add nearby buildings
@@ -181,13 +214,22 @@ export function BuildingMap({ center, building, nearbyBuildings, faces, selected
     map.on('mouseleave', 'faces', () => {
       map.getCanvas().style.cursor = ''
     })
-  }, [mapLoaded, building, nearbyBuildings, faces, selectedFace, onFaceClick])
+  }, [mapLoaded, building, nearbyBuildings, faces, selectedFace, onFaceClick, sunAzimuth, sunAltitude])
+
+  const showShadowNote =
+    sunAzimuth !== undefined && sunAltitude !== undefined && sunAltitude > 3
 
   return (
     <div className="building-map">
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
       {faces.length > 0 && !selectedFace && selectedFace !== 0 && (
         <div className="map-hint">Click a building face to analyze sunlight</div>
+      )}
+      {showShadowNote && (
+        <div className="shadow-note">
+          <span className="shadow-swatch" />
+          Shadow cast right now
+        </div>
       )}
     </div>
   )

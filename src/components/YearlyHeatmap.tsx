@@ -1,4 +1,5 @@
 import type { SunlightResult } from '../types'
+import { cellColor, RAMP_LEGEND } from '../lib/lightRamp'
 
 interface Props {
   results: SunlightResult[] // all (month, hour) pairs
@@ -7,20 +8,11 @@ interface Props {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 5) // 5am to 8pm
 
-function statusColor(status: string): string {
-  switch (status) {
-    case 'SUNLIT': return '#fbbf24'
-    case 'BLOCKED': return '#94a3b8'
-    case 'DARK': return '#1e293b'
-    default: return '#e5e7eb'
-  }
-}
-
 export function YearlyHeatmap({ results }: Props) {
-  // Build a lookup: [month][hour] -> status
-  const grid = new Map<string, string>()
+  // Build a lookup: [month][hour] -> result, so the ramp can key on altitude.
+  const grid = new Map<string, SunlightResult>()
   for (const r of results) {
-    grid.set(`${r.month}-${r.hour}`, r.status)
+    grid.set(`${r.month}-${r.hour}`, r)
   }
 
   return (
@@ -40,12 +32,14 @@ export function YearlyHeatmap({ results }: Props) {
               {hour > 12 ? `${hour - 12}p` : hour === 12 ? '12p' : `${hour}a`}
             </div>
             {MONTHS.map((_, month) => {
-              const status = grid.get(`${month}-${hour}`) || 'DARK'
+              const cell = grid.get(`${month}-${hour}`)
+              const status = cell?.status ?? 'DARK'
+              const color = cell ? cellColor(cell) : RAMP_LEGEND.dark
               return (
                 <div
                   key={`${month}-${hour}`}
                   className="heatmap-cell"
-                  style={{ backgroundColor: statusColor(status) }}
+                  style={{ backgroundColor: color }}
                   title={`${MONTHS[month]} ${hour}:00 - ${status}`}
                 />
               )
@@ -55,15 +49,15 @@ export function YearlyHeatmap({ results }: Props) {
       </div>
       <div className="heatmap-legend">
         <span className="legend-item">
-          <span className="legend-dot" style={{ backgroundColor: '#fbbf24' }} />
+          <span className="legend-dot" style={{ backgroundColor: RAMP_LEGEND.sun }} />
           Direct sun
         </span>
         <span className="legend-item">
-          <span className="legend-dot" style={{ backgroundColor: '#94a3b8' }} />
+          <span className="legend-dot" style={{ backgroundColor: RAMP_LEGEND.blocked }} />
           Blocked
         </span>
         <span className="legend-item">
-          <span className="legend-dot" style={{ backgroundColor: '#1e293b' }} />
+          <span className="legend-dot" style={{ backgroundColor: RAMP_LEGEND.dark }} />
           Night
         </span>
       </div>
